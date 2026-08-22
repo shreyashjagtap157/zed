@@ -1,0 +1,54 @@
+name: Fork Qualification
+
+on:
+  push:
+    branches:
+      - perf/large-repository-foundation
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-quality:
+    name: Rust quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: script/linux
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Check filesystem crate
+        run: cargo check -p fs
+      - name: Check worktree crate
+        run: cargo check -p worktree
+      - name: Test filesystem crate
+        run: cargo test -p fs
+      - name: Test worktree crate
+        run: cargo test -p worktree
+
+  bundle-linux:
+    name: Linux development bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: script/linux
+      - name: Build development bundle
+        run: script/bundle-linux dev
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-linux-dev
+          path: target/release/zed*.tar.gz
+          if-no-files-found: error
