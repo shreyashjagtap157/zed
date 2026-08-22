@@ -1,30 +1,23 @@
 diff --git a/crates/fs/src/fs.rs b/crates/fs/src/fs.rs
-index 7bec1f8..2d93034 100644
+index 7bec1f8..a7c9d12 100644
 --- a/crates/fs/src/fs.rs
 +++ b/crates/fs/src/fs.rs
-@@ -3418,38 +3418,64 @@ pub async fn copy_recursive<'a>(
+@@ -3418,6 +3418,11 @@ pub async fn copy_recursive<'a>(
      target: &'a Path,
      options: CopyOptions,
  ) -> Result<()> {
--    for (item, is_dir) in read_dir_items(fs, source).await? {
--        let Ok(item_relative_path) = item.strip_prefix(source) else {
--            continue;
--        };
--        let target_item = if item_relative_path == Path::new("") {
--            target.to_path_buf()
--        } else {
--            target.join(item_relative_path)
--        };
--        if is_dir {
--            if !options.overwrite && fs.metadata(&target_item).await.is_ok_and(|m| m.is_some()) {
--                if options.ignore_if_exists {
--                    continue;
--                } else {
--                    anyhow::bail!("{target_item:?} already exists");
--                }
-+    copy_recursive_streaming(fs, source, target, options).await
-+}
++    if !target.starts_with(source) {
++        return copy_recursive_streaming(fs, source, target, options).await;
++    }
 +
++    // Snapshot the source tree when copying into itself so newly-created targets are not revisited.
+     for (item, is_dir) in read_dir_items(fs, source).await? {
+         let Ok(item_relative_path) = item.strip_prefix(source) else {
+             continue;
+@@ -3451,6 +3456,55 @@ pub async fn copy_recursive<'a>(
+     Ok(())
+ }
+ 
 +fn copy_recursive_streaming<'a>(
 +    fs: &'a dyn Fs,
 +    source: &'a Path,
@@ -50,27 +43,20 @@ index 7bec1f8..2d93034 100644
 +        if target_exists && !options.overwrite {
 +            if !options.ignore_if_exists {
 +                anyhow::bail!("{target:?} already exists");
-             }
--            let _ = fs
--                .remove_dir(
--                    &target_item,
++            }
 +        } else {
 +            if target_exists {
 +                fs.remove_dir(
 +                    target,
-                     RemoveOptions {
-                         recursive: true,
-                         ignore_if_not_exists: true,
-                     },
-                 )
--                .await;
--            fs.create_dir(&target_item).await?;
--        } else {
--            fs.copy_file(&item, &target_item, options).await?;
++                    RemoveOptions {
++                        recursive: true,
++                        ignore_if_not_exists: true,
++                    },
++                )
 +                .await?;
 +            }
 +            fs.create_dir(target).await?;
-         }
++        }
 +
 +        let mut children = fs.read_dir(source).await?;
 +        while let Some(child_path) = children.next().await {
@@ -85,9 +71,10 @@ index 7bec1f8..2d93034 100644
 +        }
 +
 +        Ok(())
-     }
--    Ok(())
++    }
 +    .boxed()
- }
- 
++}
++
  /// Recursively reads all of the paths in the given directory.
+ ///
+ /// Returns a vector of tuples of (path, is_dir).
