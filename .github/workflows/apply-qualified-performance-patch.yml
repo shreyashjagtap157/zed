@@ -1,0 +1,48 @@
+name: Apply Qualified Performance Patch
+
+on:
+  push:
+    branches:
+      - perf/large-repository-foundation
+    paths:
+      - 'script/patches/stream-recursive-copy.patch'
+      - '.github/workflows/apply-qualified-performance-patch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-qualified-performance-patch
+  cancel-in-progress: false
+
+jobs:
+  qualify-and-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/large-repository-foundation
+          fetch-depth: 0
+      - name: Apply staged implementation
+        run: git apply --check script/patches/stream-recursive-copy.patch && git apply script/patches/stream-recursive-copy.patch
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Check filesystem crate
+        run: cargo check -p fs --all-targets
+      - name: Test filesystem crate
+        run: cargo test -p fs
+      - name: Check worktree compatibility
+        run: cargo check -p worktree --all-targets
+      - name: Test worktree compatibility
+        run: cargo test -p worktree
+      - name: Commit qualified implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/fs/src/fs.rs
+          git rm script/patches/stream-recursive-copy.patch
+          git commit -m 'perf: Stream recursive filesystem copies'
+          git push origin HEAD:perf/large-repository-foundation
