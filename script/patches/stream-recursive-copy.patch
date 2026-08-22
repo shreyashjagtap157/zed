@@ -2,7 +2,7 @@ diff --git a/crates/fs/src/fs.rs b/crates/fs/src/fs.rs
 index 7bec1f8..2d93034 100644
 --- a/crates/fs/src/fs.rs
 +++ b/crates/fs/src/fs.rs
-@@ -3418,38 +3418,61 @@ pub async fn copy_recursive<'a>(
+@@ -3418,38 +3418,64 @@ pub async fn copy_recursive<'a>(
      target: &'a Path,
      options: CopyOptions,
  ) -> Result<()> {
@@ -43,7 +43,10 @@ index 7bec1f8..2d93034 100644
 +            return fs.copy_file(source, target, options).await;
 +        }
 +
-+        let target_exists = fs.metadata(target).await.is_ok_and(|metadata| metadata.is_some());
++        let target_exists = fs
++            .metadata(target)
++            .await
++            .is_ok_and(|metadata| metadata.is_some());
 +        if target_exists && !options.overwrite {
 +            if !options.ignore_if_exists {
 +                anyhow::bail!("{target:?} already exists");
