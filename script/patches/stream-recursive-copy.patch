@@ -14,7 +14,7 @@ index 7bec1f8..a7c9d12 100644
      for (item, is_dir) in read_dir_items(fs, source).await? {
          let Ok(item_relative_path) = item.strip_prefix(source) else {
              continue;
-@@ -3451,6 +3456,55 @@ pub async fn copy_recursive<'a>(
+@@ -3451,6 +3456,57 @@ pub async fn copy_recursive<'a>(
      Ok(())
  }
  
@@ -41,22 +41,23 @@ index 7bec1f8..a7c9d12 100644
 +            .await
 +            .is_ok_and(|metadata| metadata.is_some());
 +        if target_exists && !options.overwrite {
-+            if !options.ignore_if_exists {
-+                anyhow::bail!("{target:?} already exists");
++            if options.ignore_if_exists {
++                return Ok(());
 +            }
-+        } else {
-+            if target_exists {
-+                fs.remove_dir(
-+                    target,
-+                    RemoveOptions {
-+                        recursive: true,
-+                        ignore_if_not_exists: true,
-+                    },
-+                )
-+                .await?;
-+            }
-+            fs.create_dir(target).await?;
++            anyhow::bail!("{target:?} already exists");
 +        }
++
++        if target_exists {
++            fs.remove_dir(
++                target,
++                RemoveOptions {
++                    recursive: true,
++                    ignore_if_not_exists: true,
++                },
++            )
++            .await?;
++        }
++        fs.create_dir(target).await?;
 +
 +        let mut children = fs.read_dir(source).await?;
 +        while let Some(child_path) = children.next().await {
