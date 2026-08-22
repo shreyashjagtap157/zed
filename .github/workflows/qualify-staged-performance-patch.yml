@@ -1,0 +1,35 @@
+name: Qualify Staged Performance Patch
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'script/patches/stream-recursive-copy.patch'
+      - '.github/workflows/qualify-staged-performance-patch.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qualify-staged-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply staged implementation
+        run: git apply --check script/patches/stream-recursive-copy.patch && git apply script/patches/stream-recursive-copy.patch
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Check filesystem crate
+        run: cargo check -p fs --all-targets
+      - name: Test filesystem crate
+        run: cargo test -p fs
+      - name: Check worktree compatibility
+        run: cargo check -p worktree --all-targets
+      - name: Test worktree compatibility
+        run: cargo test -p worktree
