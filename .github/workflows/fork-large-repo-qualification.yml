@@ -1,0 +1,47 @@
+name: Fork Large Repository Qualification
+
+on:
+  push:
+    branches:
+      - perf/large-repository-foundation
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'crates/fs/**'
+      - 'crates/worktree/**'
+      - '.github/workflows/fork-large-repo-qualification.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-large-repo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worktree:
+    name: worktree qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: rustup show
+      - name: Check worktree
+        run: cargo check -p worktree --all-targets
+      - name: Test worktree
+        run: cargo test -p worktree
+
+  fs:
+    name: filesystem qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: rustup show
+      - name: Check filesystem
+        run: cargo check -p fs --all-targets
+      - name: Test filesystem
+        run: cargo test -p fs
